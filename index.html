@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#8a3b1c">
+<title>¿Qué canción es?</title>
+<meta name="description" content="Juego para adivinar canciones del folklore uruguayo y argentino.">
+<meta property="og:title" content="¿Qué canción es? 🎸">
+<meta property="og:description" content="Escuchá un pedacito y adiviná la canción del folklore uruguayo y argentino.">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --fondo: #f6ecd9;
+    --texto: #2e1b0e;
+    --tierra: #8a3b1c;
+    --tierra-osc: #6a2a10;
+    --ocre: #eab54c;
+    --borde: #7a4a2c;
+    --tarjeta: #fffaf0;
+    --verde: #2f6b2f;
+    --suave: #e2d3ba;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { font-size: clamp(20px, 3.2vmin, 30px); -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.3;
+  }
+
+  /* Paisaje de fondo: cerros y sol */
+  .paisaje {
+    position: fixed; left: 0; bottom: 0;
+    width: 100%; height: 30vh;
+    z-index: 0; pointer-events: none;
+  }
+
+  main {
+    position: relative; z-index: 1;
+    max-width: 1100px; margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .pantalla { min-height: calc(100dvh - 40px); display: flex; flex-direction: column; }
+  #inicio, #fin { align-items: center; justify-content: center; text-align: center; gap: 1rem; }
+
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2.6rem; line-height: 1.1;
+    margin: 0; color: var(--tierra-osc);
+  }
+  .subtitulo { font-size: 1.35rem; margin: 0; }
+  .guitarra { width: min(30vmin, 170px); height: auto; }
+
+  /* Botones */
+  .btn {
+    appearance: none; border: none; font: inherit; font-weight: 700;
+    cursor: pointer; touch-action: manipulation;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+    border-radius: 1.2rem; min-height: 4rem; padding: .7rem 1.4rem;
+    font-size: 1.4rem; line-height: 1.2;
+    display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
+    box-shadow: 0 .25rem 0 rgba(0,0,0,.28);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,.28); }
+  .btn:focus-visible { outline: 5px solid #1f4fa8; outline-offset: 3px; }
+  .btn-principal { background: var(--tierra); color: #fff; }
+  .btn-principal:disabled { background: #a98670; cursor: wait; }
+  .btn-secundario { background: var(--ocre); color: var(--texto); }
+  .btn-grande { font-size: 2.1rem; min-height: 5.5rem; padding: 1rem 3.2rem; border-radius: 1.6rem; }
+
+  .aviso {
+    background: var(--tarjeta); border: 4px solid var(--tierra);
+    border-radius: 1.4rem; padding: 1.2rem 1.4rem; max-width: 34rem;
+    font-size: 1.2rem; text-align: center;
+  }
+  .aviso p { margin: .4rem 0; }
+  .aviso .chico { font-size: .95rem; }
+
+  /* Pantalla de juego */
+  #juego { gap: 1rem; }
+  .barra { display: flex; justify-content: center; flex-wrap: wrap; gap: .6rem; }
+  .contador {
+    background: var(--tarjeta); border: 3px solid var(--borde); border-radius: 999px;
+    padding: .25rem 1.2rem; font-size: 1.2rem; font-weight: 700;
+  }
+  .contador.salto { animation: salto .6s; }
+  @keyframes salto { 40% { transform: scale(1.3); } }
+
+  .tablero { display: grid; gap: 1.2rem; align-content: start; }
+  .lado-escuchar { display: flex; flex-direction: column; gap: 1rem; }
+
+  #btn-escuchar { min-height: 5.5rem; font-size: 1.8rem; width: 100%; }
+  #btn-escuchar .icono { display: inline-block; font-size: 1.1em; }
+  #btn-escuchar.sonando { background: var(--tierra-osc); }
+  #btn-escuchar.sonando .icono { animation: latido 1s ease-in-out infinite; }
+  @keyframes latido { 50% { transform: scale(1.35); } }
+  #btn-mas { width: 100%; }
+  .nota { margin: 0; text-align: center; font-size: 1rem; }
+
+  #pregunta {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.9rem; text-align: center; margin: 0 0 .7rem; color: var(--tierra-osc);
+  }
+  .opciones { display: grid; gap: .9rem; grid-template-columns: 1fr; }
+  .opcion {
+    width: 100%; min-height: 4.8rem;
+    background: var(--tarjeta); color: var(--texto); border: 3px solid var(--borde);
+    flex-direction: column; gap: .15rem; text-align: center;
+  }
+  .op-titulo { font-size: 1.45rem; }
+  .op-interprete { font-size: 1rem; font-weight: 400; }
+  .opcion:disabled { cursor: default; }
+  .opcion.correcta { background: var(--verde); border-color: var(--verde); color: #fff; opacity: 1; }
+  .opcion.elegida { background: var(--suave); }
+  .opcion.apagada { opacity: .5; }
+
+  .resultado {
+    background: var(--tarjeta); border: 4px solid var(--borde); border-radius: 1.4rem;
+    padding: 1.2rem; text-align: center;
+    display: flex; flex-direction: column; gap: .5rem; align-items: center;
+  }
+  .resultado.festejo { border-color: var(--verde); background: #eef6e6; }
+  .resultado p { margin: 0; }
+  #res-pre { font-size: 1.3rem; }
+  #res-titulo {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2.5rem; line-height: 1.1; color: var(--tierra-osc);
+  }
+  .festejo #res-titulo { color: var(--verde); }
+  #res-puntos { font-size: 2rem; font-weight: 800; color: var(--verde); }
+  #res-detalle { font-size: 1.3rem; }
+  #res-extra { font-size: 1.2rem; }
+  .link-apple { font-size: 1rem; color: var(--tierra-osc); padding: .4rem .6rem; }
+  #btn-siguiente { width: 100%; margin-top: .6rem; font-size: 1.7rem; padding: 1rem 1.2rem; }
+
+  /* Horizontal: escuchar a la izquierda, opciones a la derecha */
+  @media (orientation: landscape) and (min-width: 640px) {
+    .tablero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); align-items: start; }
+    .opciones { grid-template-columns: 1fr 1fr; }
+    .opcion { min-height: 5.5rem; }
+  }
+  /* Antes de escuchar: solo el botón grande, centrado */
+  .tablero.antes { grid-template-columns: 1fr; width: 100%; max-width: 30rem; margin: 2rem auto 0; }
+  #btn-escuchar.primera { min-height: 7rem; font-size: 2.1rem; }
+
+  .puntaje-final { font-size: 1.6rem; margin: 0; }
+  .puntaje-final strong { display: block; font-size: 4.5rem; line-height: 1; color: var(--verde); }
+  #btn-compartir { max-width: 100%; }
+  #compartir-aviso { font-weight: 700; color: var(--verde); }
+  .texto-compartir {
+    width: 100%; max-width: 30rem; min-height: 7rem; font: inherit; font-size: 1rem;
+    border: 3px solid var(--borde); border-radius: 1rem; padding: .6rem; background: var(--tarjeta);
+  }
+
+  /* Papelitos del festejo */
+  #papelitos { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+  #papelitos span {
+    position: absolute; top: -6vh; width: 14px; height: 22px; border-radius: 3px;
+    animation-name: caer; animation-timing-function: linear; animation-fill-mode: forwards;
+  }
+  @keyframes caer { to { transform: translateY(115vh) rotate(var(--giro)); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="paisaje" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <circle cx="930" cy="150" r="70" fill="#eab54c" opacity=".35"/>
+  <path d="M0 210 L140 120 L250 190 L400 80 L560 200 L700 110 L860 190 L1000 100 L1200 200 L1200 300 L0 300 Z" fill="#c98a5a" opacity=".28"/>
+  <path d="M0 250 L180 180 L330 240 L520 170 L720 250 L900 190 L1060 240 L1200 200 L1200 300 L0 300 Z" fill="#8a5a3c" opacity=".25"/>
+</svg>
+
+<main>
+  <!-- Pantalla inicial -->
+  <section id="inicio" class="pantalla">
+    <svg class="guitarra" viewBox="0 0 120 240" aria-hidden="true">
+      <g transform="rotate(-18 60 130)">
+        <rect x="49" y="2" width="22" height="28" rx="5" fill="#5a3420"/>
+        <rect x="53" y="20" width="14" height="110" fill="#6b3f24"/>
+        <ellipse cx="60" cy="118" rx="34" ry="36" fill="#a0522d"/>
+        <ellipse cx="60" cy="178" rx="45" ry="50" fill="#a0522d"/>
+        <circle cx="60" cy="140" r="14" fill="#3b2414"/>
+        <rect x="44" y="190" width="32" height="7" rx="2" fill="#3b2414"/>
+        <g stroke="#f6ecd9" stroke-width="1">
+          <line x1="56" y1="14" x2="56" y2="193"/>
+          <line x1="58.7" y1="14" x2="58.7" y2="193"/>
+          <line x1="61.3" y1="14" x2="61.3" y2="193"/>
+          <line x1="64" y1="14" x2="64" y2="193"/>
+        </g>
+      </g>
+    </svg>
+    <h1>¿Qué canción es?</h1>
+    <p class="subtitulo">Escuchá un pedacito y adiviná cuál es la canción del folklore.
+      Son 5 canciones por partida.</p>
+    <div id="aviso-pocas" class="aviso" hidden></div>
+    <button id="btn-empezar" class="btn btn-principal btn-grande">Empezar</button>
+  </section>
+
+  <!-- Pantalla de juego -->
+  <section id="juego" class="pantalla" hidden>
+    <div class="barra">
+      <div id="progreso" class="contador">Canción 1 de 5</div>
+      <div id="contador" class="contador">⭐ <span id="puntos">0</span> puntos</div>
+    </div>
+
+    <div id="error-audio" class="aviso" hidden style="align-self:center">
+      <p><strong>Esta canción no se puede escuchar.</strong></p>
+      <p class="chico" id="error-detalle"></p>
+      <button id="btn-saltar" class="btn btn-principal" style="margin-top:.6rem">Pasar a otra canción ➜</button>
+    </div>
+
+    <div id="tablero" class="tablero">
+      <div class="lado-escuchar">
+        <div id="zona-escuchar" class="lado-escuchar">
+          <button id="btn-escuchar" class="btn btn-principal">
+            <span class="icono">▶</span><span class="txt">Escuchar la canción</span>
+          </button>
+          <button id="btn-mas" class="btn btn-secundario">🎶 Escuchar un poco más</button>
+          <p id="nota" class="nota"></p>
+        </div>
+
+        <div id="resultado" class="resultado" hidden>
+          <p id="res-pre"></p>
+          <p id="res-titulo"></p>
+          <p id="res-puntos"></p>
+          <p id="res-detalle"></p>
+          <p id="res-extra"></p>
+          <a id="res-apple" class="link-apple" target="_blank" rel="noopener" hidden>🎵 Escuchala completa en Apple Music</a>
+          <button id="btn-siguiente" class="btn btn-principal btn-grande">Siguiente canción ➜</button>
+        </div>
+      </div>
+
+      <div id="zona-opciones">
+        <h2 id="pregunta">¿Qué canción es?</h2>
+        <div id="opciones" class="opciones"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pantalla final -->
+  <section id="fin" class="pantalla" hidden>
+    <h1 id="fin-titulo">¡Terminó la partida!</h1>
+    <p class="puntaje-final"><strong id="fin-puntos">0</strong> puntos</p>
+    <p class="subtitulo" id="fin-resumen"></p>
+    <p class="subtitulo" id="fin-record"></p>
+    <button id="btn-compartir" class="btn btn-secundario">📋 Copiar mis puntos para compartir</button>
+    <p id="compartir-aviso" class="subtitulo" hidden></p>
+    <textarea id="compartir-texto" class="texto-compartir" readonly hidden></textarea>
+    <button id="btn-otra-vez" class="btn btn-principal btn-grande">Jugar otra vez</button>
+  </section>
+</main>
+
+<div id="papelitos" aria-hidden="true"></div>
+
+<script src="canciones.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const PASOS = [2, 5, 10, 20];    // segundos del fragmento al tocar "Escuchar un poco más"
+  const SEGUNDOS_FESTEJO = 30;     // cuánto suena la canción al acertar
+  const CANCIONES_POR_PARTIDA = 5;
+  const CLAVE_RECORD = 'que-cancion-es-record';
+  const FRASES = ['¡Muy bien!', '¡Bravo!', '¡Qué oído!', '¡Excelente!', '¡Eso es!', '¡Acertaste!'];
+  const COLORES = ['#8a3b1c', '#eab54c', '#2f6b2f', '#c98a5a', '#1f4fa8', '#d9534f'];
+
+  const $ = (id) => document.getElementById(id);
+
+  let lista = [];           // solo las canciones que se pueden escuchar
+  let mazo = [];            // se mantiene entre partidas para no repetir canciones
+  let ronda = null;         // la canción que se está adivinando
+  let enPartida = new Set();
+  let aciertos = 0;
+  let jugadas = 0;
+  let puntos = 0;
+  let resultados = [];      // true/false por cada canción de la partida, para compartir
+  let cargando = false;
+
+  // ---------- Lista de canciones ----------
+
+  function leerLista() {
+    if (typeof CANCIONES === 'undefined' || !Array.isArray(CANCIONES)) return null;
+    return CANCIONES
+      .filter((c) => c && String(c.titulo || '').trim())
+      .map((c) => ({
+        titulo: String(c.titulo).trim(),
+        interprete: String(c.interprete || '').trim(),
+        archivo: String(c.archivo || '').trim(),
+        itunes: numeroItunes(c.itunes),
+        inicio: Math.max(0, Number(c.inicio) || 0),
+      }))
+      .filter((c) => c.archivo || c.itunes);
+  }
+
+  // Acepta el número solo o el enlace de Apple Music (…?i=123456789)
+  function numeroItunes(valor) {
+    const s = String(valor || '').trim();
+    const m = s.match(/[?&]i=(\d+)/) || s.match(/^(\d+)$/);
+    return m ? m[1] : '';
+  }
+
+  // Pide a iTunes las muestras de 30 segundos. Usa JSONP para que funcione
+  // abriendo el index.html con doble clic. Devuelve null si no hay internet.
+  function buscarMuestras(ids) {
+    return new Promise((resolve) => {
+      const nombre = 'respuestaItunes' + Date.now();
+      const script = document.createElement('script');
+      let listo = false;
+      const terminar = (datos) => {
+        if (listo) return;
+        listo = true;
+        clearTimeout(espera);
+        window[nombre] = () => {};
+        script.remove();
+        resolve(datos);
+      };
+      const espera = setTimeout(() => terminar(null), 15000);
+      window[nombre] = terminar;
+      script.onerror = () => terminar(null);
+      script.src = 'https://itunes.apple.com/lookup?country=ar&id=' + ids.join(',') + '&callback=' + nombre;
+      document.head.appendChild(script);
+    });
+  }
+
+  function titulosDistintos(l) {
+    return new Set(l.map((c) => c.titulo.toLowerCase())).size;
+  }
+
+  function barajar(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function mostrar(id) {
+    for (const p of document.querySelectorAll('.pantalla')) p.hidden = p.id !== id;
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- Audio ----------
+
+  const audio = new Audio();
+  audio.preload = 'auto';
+  let urlCargada = null;
+  let turno = 0;            // cambia cada vez que arranca o se corta un sonido
+  let fin = Infinity;       // segundo en el que hay que cortar
+  let apagando = false;
+  let timerApagar = null;
+
+  function sonar(segundos, desde = ronda.desde) {
+    const c = ronda.cancion;
+    turno++;
+    clearInterval(timerApagar);
+    apagando = false;
+    audio.volume = 1;
+    fin = desde + segundos;
+    if (urlCargada !== c.url) {
+      urlCargada = c.url;
+      // "#t=" hace que el navegador arranque directo en ese segundo
+      audio.src = desde ? c.url + '#t=' + desde : c.url;
+      marcarSonando('cargando');
+    } else {
+      try { audio.currentTime = desde; } catch (e) { /* todavía cargando */ }
+    }
+    const p = audio.play();
+    if (p && p.catch) p.catch(() => marcarSonando(false));
+  }
+
+  function callar() {
+    turno++;
+    clearInterval(timerApagar);
+    apagando = false;
+    audio.pause();
+    audio.volume = 1;
+  }
+
+  // Baja el volumen de a poco en vez de cortar de golpe
+  function apagarDeAPoco() {
+    apagando = true;
+    const mio = turno;
+    let paso = 0;
+    timerApagar = setInterval(() => {
+      if (mio !== turno) { clearInterval(timerApagar); return; }
+      paso++;
+      audio.volume = Math.max(0, 1 - paso / 8);
+      if (paso >= 8) {
+        clearInterval(timerApagar);
+        audio.pause();
+        audio.volume = 1;
+        apagando = false;
+      }
+    }, 40);
+  }
+
+  // timeupdate llega cada ~0,25 s: arrancamos el apagado un poquito antes
+  audio.addEventListener('timeupdate', () => {
+    if (!audio.paused && !apagando && audio.currentTime >= fin - 0.25) apagarDeAPoco();
+  });
+  audio.addEventListener('playing', () => {
+    // el tiempo para responder corre desde que empieza a sonar por primera vez
+    if (ronda && !ronda.respondida && ronda.arranco === null) ronda.arranco = performance.now();
+    marcarSonando(true);
+  });
+  audio.addEventListener('waiting', () => { if (!audio.paused) marcarSonando('cargando'); });
+  audio.addEventListener('pause', () => marcarSonando(false));
+  audio.addEventListener('ended', () => marcarSonando(false));
+  audio.addEventListener('error', () => {
+    if (ronda && !ronda.respondida && urlCargada === ronda.cancion.url) mostrarErrorAudio();
+  });
+
+  // estado: true (sonando), false (quieto) o 'cargando'
+  function marcarSonando(estado) {
+    const b = $('btn-escuchar');
+    cargando = estado === 'cargando';
+    b.classList.toggle('sonando', estado === true);
+    b.querySelector('.icono').textContent = estado === true ? '♪' : estado ? '⏳' : '▶';
+    b.querySelector('.txt').textContent =
+      estado === true ? 'Sonando…' : estado ? 'Cargando…'
+      : ronda && ronda.escuchas > 0 ? 'Escuchar de nuevo' : 'Escuchar la canción';
+  }
+
+  function mostrarErrorAudio() {
+    callar();
+    const c = ronda.cancion;
+    $('tablero').hidden = true;
+    $('error-detalle').textContent = c.archivo
+      ? 'Falta el archivo «' + c.archivo + '» en la carpeta «canciones».'
+      : 'No se pudo traer «' + c.titulo + '» de internet. Puede ser la conexión.';
+    $('error-audio').hidden = false;
+  }
+
+  // ---------- Juego ----------
+
+  async function prepararInicio() {
+    const empezarBtn = $('btn-empezar');
+    const crudas = leerLista();
+    if (!crudas) {
+      avisar('<p><strong>No se pudo leer la lista de canciones.</strong></p>' +
+             '<p class="chico">Revisá que el archivo «canciones.js» esté al lado de este y no tenga errores.</p>');
+      return;
+    }
+
+    const ids = crudas.filter((c) => !c.archivo).map((c) => c.itunes);
+    let muestras = {};
+    let sinInternet = false;
+    if (ids.length) {
+      empezarBtn.disabled = true;
+      empezarBtn.textContent = 'Preparando…';
+      const datos = await buscarMuestras(ids);
+      if (!datos) sinInternet = true;
+      for (const r of (datos && datos.results) || []) {
+        if (r.previewUrl) muestras[String(r.trackId)] = r;
+      }
+    }
+
+    lista = [];
+    for (const c of crudas) {
+      const m = muestras[c.itunes];
+      c.url = c.archivo ? 'canciones/' + encodeURI(c.archivo) : m && m.previewUrl;
+      c.enApple = !c.archivo && m ? m.trackViewUrl : '';
+      if (c.url) lista.push(c);
+      else if (!sinInternet) console.warn('No se encontró en iTunes:', c.titulo, c.itunes);
+    }
+
+    const n = titulosDistintos(lista);
+    if (n < 4 && sinInternet) {
+      avisar('<p><strong>No hay conexión a internet.</strong></p>' +
+             '<p>Las canciones se escuchan por internet. Revisá la conexión y probá de nuevo.</p>' +
+             '<button class="btn btn-principal" onclick="location.reload()">Probar de nuevo</button>');
+    } else if (n < 4) {
+      avisar('<p><strong>Todavía hay pocas canciones cargadas.</strong></p>' +
+             '<p>Para jugar hacen falta por lo menos 4 canciones distintas, y ahora hay ' + n + '.</p>' +
+             '<p class="chico">Se agregan en el archivo «canciones.js».</p>');
+    } else {
+      empezarBtn.disabled = false;
+      empezarBtn.textContent = 'Empezar';
+    }
+  }
+
+  function avisar(html) {
+    const aviso = $('aviso-pocas');
+    aviso.innerHTML = html;
+    aviso.hidden = false;
+    $('btn-empezar').hidden = true;
+  }
+
+  function empezar() {
+    enPartida = new Set();
+    aciertos = 0;
+    jugadas = 0;
+    puntos = 0;
+    resultados = [];
+    $('puntos').textContent = '0';
+    mostrar('juego');
+    nuevaRonda();
+  }
+
+  // Muestras de iTunes con inicio 0: arrancan en un segundo al azar entre 0 y
+  // 10, así no empiezan siempre con la frase más conocida. Como la muestra dura
+  // 30 segundos, hasta el segundo 10 entra entero el pedazo más largo (20 s).
+  // Si la canción tiene un inicio puesto a mano, o es un mp3 propio, se usa ese.
+  function elegirInicio(c) {
+    if (c.archivo || c.inicio) return c.inicio;
+    return Math.floor(Math.random() * 11);
+  }
+
+  // Saca la próxima canción sin repetir. Cuando se terminan todas, se vuelve
+  // a mezclar la lista (sin las que ya salieron en esta partida).
+  function sacarCancion() {
+    if (mazo.length === 0) mazo = barajar(lista.filter((c) => !enPartida.has(c)));
+    return mazo.pop() || null;
+  }
+
+  function nuevaRonda() {
+    callar();
+    if (jugadas >= CANCIONES_POR_PARTIDA) { terminar(); return; }
+    const cancion = sacarCancion();
+    if (!cancion) { terminar(); return; }
+    enPartida.add(cancion);
+
+    const usados = new Set([cancion.titulo.toLowerCase()]);
+    const otras = [];
+    for (const c of barajar(lista)) {
+      const clave = c.titulo.toLowerCase();
+      if (usados.has(clave)) continue;
+      usados.add(clave);
+      otras.push(c);
+      if (otras.length === 3) break;
+    }
+    ronda = {
+      cancion, opciones: barajar([cancion, ...otras]), desde: elegirInicio(cancion),
+      paso: 0, escuchas: 0, arranco: null, respondida: false,
+    };
+
+    // Arranca quieta: primero solo el botón grande para escuchar
+    $('progreso').textContent = 'Canción ' + (jugadas + 1) + ' de ' + CANCIONES_POR_PARTIDA;
+    $('error-audio').hidden = true;
+    $('tablero').hidden = false;
+    $('tablero').classList.add('antes');
+    $('btn-escuchar').classList.add('primera');
+    $('zona-escuchar').hidden = false;
+    $('zona-opciones').hidden = true;
+    $('pregunta').hidden = false;
+    $('resultado').hidden = true;
+    $('btn-mas').hidden = true;
+    $('nota').textContent = 'Tocá el botón para escuchar un pedacito.';
+    marcarSonando(false);
+    dibujarOpciones();
+    window.scrollTo(0, 0);
+  }
+
+  function escuchar() {
+    if (!ronda || cargando) return;
+    if (ronda.escuchas === 0) {
+      $('tablero').classList.remove('antes');
+      $('btn-escuchar').classList.remove('primera');
+      $('zona-opciones').hidden = false;
+    }
+    ronda.escuchas++;
+    actualizarNota();
+    sonar(PASOS[ronda.paso]);
+  }
+
+  function dibujarOpciones() {
+    const caja = $('opciones');
+    caja.innerHTML = '';
+    ronda.opciones.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'btn opcion';
+      const t = document.createElement('span');
+      t.className = 'op-titulo';
+      t.textContent = c.titulo;
+      b.appendChild(t);
+      if (c.interprete) {
+        const s = document.createElement('span');
+        s.className = 'op-interprete';
+        s.textContent = c.interprete;
+        b.appendChild(s);
+      }
+      b.addEventListener('click', () => responder(i));
+      caja.appendChild(b);
+    });
+  }
+
+  function actualizarNota() {
+    const ultimo = ronda.paso >= PASOS.length - 1;
+    $('btn-mas').hidden = ultimo;
+    $('nota').textContent = ultimo
+      ? 'Ya está sonando el pedazo más largo (' + PASOS[ronda.paso] + ' segundos).'
+      : 'Suena un pedacito de ' + PASOS[ronda.paso] + ' segundos.';
+  }
+
+  function escucharMas() {
+    if (!ronda || cargando) return;
+    if (ronda.paso < PASOS.length - 1) ronda.paso++;
+    ronda.escuchas++;
+    actualizarNota();
+    sonar(PASOS[ronda.paso]);
+  }
+
+  // Cada acierto da hasta 100 puntos: hasta 50 por rapidez y hasta 50 por
+  // la cantidad de veces que hizo falta escucharla. Errar da 0, sin restar.
+  function calcularPuntos(segundos, escuchas) {
+    // hasta 5 segundos: 50; después baja de a poco hasta 10 (al minuto)
+    const rapidez = Math.round(Math.min(50, Math.max(10, 50 - (segundos - 5) * 40 / 55)));
+    // 1 escuchada: 50, 2: 40, 3: 30, 4: 20, 5 o más: 10
+    const oido = Math.max(10, 60 - escuchas * 10);
+    return { rapidez, oido, total: rapidez + oido };
+  }
+
+  function responder(i) {
+    if (!ronda || ronda.respondida) return;
+    ronda.respondida = true;
+    jugadas++;
+    const acerto = ronda.opciones[i] === ronda.cancion;
+    resultados.push(acerto);
+    const segundos = ronda.arranco === null ? 0 : (performance.now() - ronda.arranco) / 1000;
+
+    $('opciones').querySelectorAll('.opcion').forEach((b, j) => {
+      b.disabled = true;
+      if (ronda.opciones[j] === ronda.cancion) {
+        b.classList.add('correcta');
+        b.querySelector('.op-titulo').textContent = '✓ ' + ronda.cancion.titulo;
+      } else if (j === i) {
+        b.classList.add('elegida');
+      } else {
+        b.classList.add('apagada');
+      }
+    });
+
+    const c = ronda.cancion;
+    const r = $('resultado');
+    r.classList.toggle('festejo', acerto);
+    $('zona-escuchar').hidden = true;
+    $('pregunta').hidden = true;
+
+    if (acerto) {
+      const p = calcularPuntos(segundos, ronda.escuchas);
+      aciertos++;
+      puntos += p.total;
+      $('puntos').textContent = puntos;
+      const cont = $('contador');
+      cont.classList.remove('salto'); void cont.offsetWidth; cont.classList.add('salto');
+      $('res-pre').hidden = true;
+      $('res-titulo').textContent = FRASES[Math.floor(Math.random() * FRASES.length)];
+      $('res-puntos').hidden = false;
+      $('res-puntos').textContent = '+' + p.total + ' puntos';
+      $('res-detalle').hidden = false;
+      $('res-detalle').textContent = 'Era «' + c.titulo + '»' + (c.interprete ? ', de ' + c.interprete : '') + '.';
+      $('res-extra').textContent = '⚡ Rapidez +' + p.rapidez + '  ·  👂 Oído +' + p.oido;
+      tirarPapelitos();
+      // para festejar, la muestra suena desde el principio (la parte más linda)
+      sonar(SEGUNDOS_FESTEJO, c.archivo ? c.inicio : 0);
+    } else {
+      callar();
+      $('res-pre').hidden = false;
+      $('res-pre').textContent = 'Esta vez era:';
+      $('res-titulo').textContent = '«' + c.titulo + '»';
+      $('res-puntos').hidden = true;
+      $('res-detalle').textContent = c.interprete;
+      $('res-detalle').hidden = !c.interprete;
+      $('res-extra').textContent = '¡La próxima sale!';
+    }
+
+    // Las muestras son de Apple: dejamos el enlace a la canción completa
+    const apple = $('res-apple');
+    apple.hidden = !c.enApple;
+    if (c.enApple) apple.href = c.enApple;
+
+    $('btn-siguiente').textContent =
+      jugadas < CANCIONES_POR_PARTIDA ? 'Siguiente canción ➜' : 'Ver mis puntos ➜';
+    r.hidden = false;
+    r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function terminar() {
+    callar();
+    ronda = null;
+    $('fin-titulo').textContent =
+      jugadas > 0 && aciertos === jugadas ? '¡Perfecto, acertaste todas!' : '¡Terminó la partida!';
+    $('fin-puntos').textContent = puntos;
+    $('fin-resumen').innerHTML = aciertos > 0
+      ? 'Acertaste <strong>' + aciertos + '</strong> de ' + jugadas + ' canciones.'
+      : '¡Qué lindo fue escucharlas!';
+
+    // El récord queda guardado en este aparato
+    let record = 0;
+    try { record = Number(localStorage.getItem(CLAVE_RECORD)) || 0; } catch (e) { /* sin memoria */ }
+    if (puntos > record) {
+      try { localStorage.setItem(CLAVE_RECORD, String(puntos)); } catch (e) { /* sin memoria */ }
+    }
+    $('fin-record').textContent = puntos > record && record > 0 ? '🏆 ¡Nuevo récord!'
+      : record > 0 ? 'Tu mejor puntaje: ' + Math.max(record, puntos) + ' puntos.' : '';
+    $('btn-compartir').textContent = '📋 Copiar mis puntos para compartir';
+    $('compartir-aviso').hidden = true;
+    $('compartir-texto').hidden = true;
+    if (puntos > 0) tirarPapelitos();
+    mostrar('fin');
+  }
+
+  // ---------- Compartir ----------
+
+  function textoParaCompartir() {
+    let texto = '🎸 ¿Qué canción es? 🎶\n' +
+      '¡Mirá los puntos que hice: ' + puntos + '!\n' +
+      'Acerté ' + aciertos + ' de ' + jugadas + ' canciones del folklore\n' +
+      resultados.map((a) => (a ? '🟩' : '⬜')).join('');
+    // Si el juego está publicado en internet, sumamos el link para que jueguen
+    if (location.protocol.startsWith('http')) {
+      texto += '\n¡Jugá vos también! ' + location.origin + location.pathname;
+    }
+    return texto;
+  }
+
+  async function copiar(texto) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    } catch (e) { /* probamos a la antigua */ }
+    const t = document.createElement('textarea');
+    t.value = texto;
+    t.setAttribute('readonly', '');
+    t.style.position = 'fixed';
+    t.style.opacity = '0';
+    document.body.appendChild(t);
+    t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    t.remove();
+    return ok;
+  }
+
+  async function compartir() {
+    const texto = textoParaCompartir();
+    const aviso = $('compartir-aviso');
+    if (await copiar(texto)) {
+      $('btn-compartir').textContent = '✅ ¡Copiado!';
+      aviso.textContent = 'Ahora pegalo en WhatsApp para mandarlo.';
+      aviso.hidden = false;
+    } else {
+      // Si no se pudo copiar solo, mostramos el texto para copiarlo a mano
+      const caja = $('compartir-texto');
+      $('btn-compartir').textContent = '📋 Copiar mis puntos para compartir';
+      caja.value = texto;
+      caja.hidden = false;
+      caja.select();
+      aviso.textContent = 'Copiá este texto y pegalo en WhatsApp:';
+      aviso.hidden = false;
+    }
+  }
+
+  function tirarPapelitos() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const caja = $('papelitos');
+    caja.innerHTML = '';
+    for (let i = 0; i < 45; i++) {
+      const s = document.createElement('span');
+      s.style.left = Math.random() * 100 + '%';
+      s.style.background = COLORES[i % COLORES.length];
+      s.style.animationDelay = Math.random() * 0.7 + 's';
+      s.style.animationDuration = 2.2 + Math.random() * 1.6 + 's';
+      s.style.setProperty('--giro', Math.round(Math.random() * 720 - 360) + 'deg');
+      caja.appendChild(s);
+    }
+    setTimeout(() => { caja.innerHTML = ''; }, 5000);
+  }
+
+  // ---------- Botones ----------
+
+  $('btn-empezar').addEventListener('click', empezar);
+  $('btn-escuchar').addEventListener('click', escuchar);
+  $('btn-mas').addEventListener('click', escucharMas);
+  $('btn-siguiente').addEventListener('click', nuevaRonda);
+  $('btn-saltar').addEventListener('click', nuevaRonda);
+  $('btn-otra-vez').addEventListener('click', empezar);
+  $('btn-compartir').addEventListener('click', compartir);
+
+  prepararInicio();
+})();
+</script>
+</body>
+</html>

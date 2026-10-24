@@ -1,0 +1,5 @@
+# La música propia no se sube: el repositorio es público
+canciones/*
+*.mp3
+*.m4a
+*.wav
