@@ -56,7 +56,8 @@
     margin: 0; color: var(--tierra-osc);
   }
   .subtitulo { font-size: 1.35rem; margin: 0; }
-  .guitarra { width: min(30vmin, 170px); height: auto; }
+  .guitarra { width: min(20vmin, 150px); height: auto; }
+  #inicio { gap: .8rem; }
 
   /* Botones */
   .btn {
@@ -75,6 +76,18 @@
   .btn-principal:disabled { background: #a98670; cursor: wait; }
   .btn-secundario { background: var(--ocre); color: var(--texto); }
   .btn-grande { font-size: 2.1rem; min-height: 5.5rem; padding: 1rem 3.2rem; border-radius: 1.6rem; }
+
+  .modos { display: flex; flex-direction: column; align-items: center; gap: .8rem; width: 100%; }
+  .pregunta-modo { margin: .4rem 0 0; font-size: 1.35rem; font-weight: 700; }
+  .btn-modo { width: min(100%, 22rem); min-height: 4.2rem; font-size: 1.7rem; }
+  .bandera {
+    width: 1.7em; height: auto; border-radius: 3px; flex: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,.7);
+  }
+  .btn-texto {
+    appearance: none; background: none; border: none; font: inherit; font-size: 1.1rem;
+    color: var(--tierra-osc); text-decoration: underline; cursor: pointer; padding: .6rem 1rem;
+  }
 
   .aviso {
     background: var(--tarjeta); border: 4px solid var(--tierra);
@@ -201,10 +214,29 @@
       </g>
     </svg>
     <h1>¿Qué canción es?</h1>
-    <p class="subtitulo">Escuchá un pedacito y adiviná cuál es la canción del folklore.
-      Son 5 canciones por partida.</p>
+    <p class="subtitulo">Escuchá un pedacito y adiviná la canción.
+      Son 5 por partida.</p>
     <div id="aviso-pocas" class="aviso" hidden></div>
-    <button id="btn-empezar" class="btn btn-principal btn-grande">Empezar</button>
+    <p id="preparando" class="subtitulo" hidden>Preparando las canciones…</p>
+    <div id="modos" class="modos">
+      <p class="pregunta-modo">¿Qué canciones querés?</p>
+      <button class="btn btn-principal btn-modo" data-modo="uy">
+        <svg class="bandera" viewBox="0 0 27 18" aria-hidden="true">
+          <rect width="27" height="18" fill="#fff"/>
+          <g fill="#0038a8"><rect y="2" width="27" height="2"/><rect y="6" width="27" height="2"/><rect y="10" width="27" height="2"/><rect y="14" width="27" height="2"/></g>
+          <rect width="10" height="10" fill="#fff"/><circle cx="5" cy="5" r="2.8" fill="#fcd116"/>
+        </svg>
+        Uruguayas
+      </button>
+      <button class="btn btn-principal btn-modo" data-modo="ar">
+        <svg class="bandera" viewBox="0 0 27 18" aria-hidden="true">
+          <rect width="27" height="18" fill="#74acdf"/><rect y="6" width="27" height="6" fill="#fff"/>
+          <circle cx="13.5" cy="9" r="2.2" fill="#f6b40e"/>
+        </svg>
+        Argentinas
+      </button>
+      <button class="btn btn-principal btn-modo" data-modo="todas">De los dos países</button>
+    </div>
   </section>
 
   <!-- Pantalla de juego -->
@@ -258,6 +290,7 @@
     <p id="compartir-aviso" class="subtitulo" hidden></p>
     <textarea id="compartir-texto" class="texto-compartir" readonly hidden></textarea>
     <button id="btn-otra-vez" class="btn btn-principal btn-grande">Jugar otra vez</button>
+    <button id="btn-elegir" class="btn-texto">Elegir otras canciones</button>
   </section>
 </main>
 
@@ -278,7 +311,8 @@
   const $ = (id) => document.getElementById(id);
 
   let lista = [];           // solo las canciones que se pueden escuchar
-  let mazo = [];            // se mantiene entre partidas para no repetir canciones
+  let modo = 'todas';       // 'uy', 'ar' o 'todas'
+  const mazos = {};         // uno por modo; se mantienen entre partidas para no repetir
   let ronda = null;         // la canción que se está adivinando
   let enPartida = new Set();
   let aciertos = 0;
@@ -294,6 +328,7 @@
     return CANCIONES
       .filter((c) => c && String(c.titulo || '').trim())
       .map((c) => ({
+        pais: String(c.pais || '').trim().toLowerCase(),
         titulo: String(c.titulo).trim(),
         interprete: String(c.interprete || '').trim(),
         archivo: String(c.archivo || '').trim(),
@@ -445,8 +480,12 @@
 
   // ---------- Juego ----------
 
+  function cancionesDelModo(m) {
+    return m === 'todas' ? lista : lista.filter((c) => c.pais === m);
+  }
+
   async function prepararInicio() {
-    const empezarBtn = $('btn-empezar');
+    const botones = document.querySelectorAll('.btn-modo');
     const crudas = leerLista();
     if (!crudas) {
       avisar('<p><strong>No se pudo leer la lista de canciones.</strong></p>' +
@@ -458,9 +497,10 @@
     let muestras = {};
     let sinInternet = false;
     if (ids.length) {
-      empezarBtn.disabled = true;
-      empezarBtn.textContent = 'Preparando…';
+      botones.forEach((b) => { b.disabled = true; });
+      $('preparando').hidden = false;
       const datos = await buscarMuestras(ids);
+      $('preparando').hidden = true;
       if (!datos) sinInternet = true;
       for (const r of (datos && datos.results) || []) {
         if (r.previewUrl) muestras[String(r.trackId)] = r;
@@ -486,8 +526,11 @@
              '<p>Para jugar hacen falta por lo menos 4 canciones distintas, y ahora hay ' + n + '.</p>' +
              '<p class="chico">Se agregan en el archivo «canciones.js».</p>');
     } else {
-      empezarBtn.disabled = false;
-      empezarBtn.textContent = 'Empezar';
+      // Cada opción aparece solo si tiene al menos 4 canciones para jugar
+      botones.forEach((b) => {
+        b.disabled = false;
+        b.hidden = titulosDistintos(cancionesDelModo(b.dataset.modo)) < 4;
+      });
     }
   }
 
@@ -495,10 +538,11 @@
     const aviso = $('aviso-pocas');
     aviso.innerHTML = html;
     aviso.hidden = false;
-    $('btn-empezar').hidden = true;
+    $('modos').hidden = true;
   }
 
-  function empezar() {
+  function empezar(nuevoModo) {
+    if (nuevoModo) modo = nuevoModo;
     enPartida = new Set();
     aciertos = 0;
     jugadas = 0;
@@ -521,8 +565,10 @@
   // Saca la próxima canción sin repetir. Cuando se terminan todas, se vuelve
   // a mezclar la lista (sin las que ya salieron en esta partida).
   function sacarCancion() {
-    if (mazo.length === 0) mazo = barajar(lista.filter((c) => !enPartida.has(c)));
-    return mazo.pop() || null;
+    if (!mazos[modo] || mazos[modo].length === 0) {
+      mazos[modo] = barajar(cancionesDelModo(modo).filter((c) => !enPartida.has(c)));
+    }
+    return mazos[modo].pop() || null;
   }
 
   function nuevaRonda() {
@@ -534,7 +580,8 @@
 
     const usados = new Set([cancion.titulo.toLowerCase()]);
     const otras = [];
-    for (const c of barajar(lista)) {
+    // las otras 3 opciones salen de las mismas canciones elegidas (mismo país)
+    for (const c of barajar(cancionesDelModo(modo))) {
       const clave = c.titulo.toLowerCase();
       if (usados.has(clave)) continue;
       usados.add(clave);
@@ -699,9 +746,11 @@
 
     // El récord queda guardado en este aparato
     let record = 0;
-    try { record = Number(localStorage.getItem(CLAVE_RECORD)) || 0; } catch (e) { /* sin memoria */ }
+    // (uno por cada elección: uruguayas, argentinas o las dos)
+    const clave = CLAVE_RECORD + '-' + modo;
+    try { record = Number(localStorage.getItem(clave)) || 0; } catch (e) { /* sin memoria */ }
     if (puntos > record) {
-      try { localStorage.setItem(CLAVE_RECORD, String(puntos)); } catch (e) { /* sin memoria */ }
+      try { localStorage.setItem(clave, String(puntos)); } catch (e) { /* sin memoria */ }
     }
     $('fin-record').textContent = puntos > record && record > 0 ? '🏆 ¡Nuevo récord!'
       : record > 0 ? 'Tu mejor puntaje: ' + Math.max(record, puntos) + ' puntos.' : '';
@@ -717,7 +766,8 @@
   function textoParaCompartir() {
     let texto = '🎸 ¿Qué canción es? 🎶\n' +
       '¡Mirá los puntos que hice: ' + puntos + '!\n' +
-      'Acerté ' + aciertos + ' de ' + jugadas + ' canciones del folklore\n' +
+      'Acerté ' + aciertos + ' de ' + jugadas + ' canciones del folklore' +
+      ({ uy: ' uruguayo', ar: ' argentino' }[modo] || '') + '\n' +
       resultados.map((a) => (a ? '🟩' : '⬜')).join('');
     // Si el juego está publicado en internet, sumamos el link para que jueguen
     if (location.protocol.startsWith('http')) {
@@ -781,12 +831,15 @@
 
   // ---------- Botones ----------
 
-  $('btn-empezar').addEventListener('click', empezar);
+  document.querySelectorAll('.btn-modo').forEach((b) => {
+    b.addEventListener('click', () => empezar(b.dataset.modo));
+  });
+  $('btn-elegir').addEventListener('click', () => mostrar('inicio'));
   $('btn-escuchar').addEventListener('click', escuchar);
   $('btn-mas').addEventListener('click', escucharMas);
   $('btn-siguiente').addEventListener('click', nuevaRonda);
   $('btn-saltar').addEventListener('click', nuevaRonda);
-  $('btn-otra-vez').addEventListener('click', empezar);
+  $('btn-otra-vez').addEventListener('click', () => empezar());
   $('btn-compartir').addEventListener('click', compartir);
 
   prepararInicio();

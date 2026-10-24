@@ -9,6 +9,7 @@ Las canciones de la lista suenan con las **muestras de 30 segundos de iTunes**, 
 ## Cómo agregar una canción
 
 Abrí `canciones.js` con el Bloc de notas y agregá una línea nueva dentro de la lista, igual a las otras.
+Poné `pais: "uy"` o `pais: "ar"` para que aparezca al elegir Uruguayas o Argentinas.
 Hay dos formas:
 
 ### Con la muestra de iTunes (lo más fácil)
@@ -18,7 +19,7 @@ Hay dos formas:
 3. Pegá ese enlace en `itunes`:
 
    ```js
-   { titulo: "Paisaje de Catamarca", interprete: "Los Chalchaleros", itunes: "https://music.apple.com/ar/album/...?i=1234567890", archivo: "", inicio: 0 },
+   { pais: "ar", titulo: "Paisaje de Catamarca", interprete: "Los Chalchaleros", itunes: "https://music.apple.com/ar/album/...?i=1234567890", archivo: "", inicio: 0 },
    ```
 
    El enlace tiene que terminar en `?i=` y un número (ese número es la canción). También podés poner solo el número.
@@ -33,7 +34,7 @@ Hay dos formas:
 2. Poné ese nombre en `archivo` (si hay `archivo`, se usa el mp3 y se ignora `itunes`):
 
    ```js
-   { titulo: "Paisaje de Catamarca", interprete: "Los Chalchaleros", itunes: "", archivo: "paisaje-de-catamarca.mp3", inicio: 42 },
+   { pais: "ar", titulo: "Paisaje de Catamarca", interprete: "Los Chalchaleros", itunes: "", archivo: "paisaje-de-catamarca.mp3", inicio: 42 },
    ```
 
    `inicio` es el segundo donde arranca el fragmento: elegí una parte que se reconozca
